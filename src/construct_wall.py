@@ -20,6 +20,10 @@ def offset(bounds, dx, dy):
     return tuple(bounds)
 
 
+def get_size(bounds):
+    return bounds[2] - bounds[0], bounds[3] - bounds[1]
+
+
 class Desktop:
 
     def __init__(self, monitors):
@@ -34,6 +38,9 @@ class Desktop:
 
         self.monitors = monitors
         self.offset_monitors(offset_x, offset_y)
+
+    def get_bounds(self):
+        return self.x1, self.y1, self.x2, self.y2
 
     def offset_monitors(self, dx, dy):
         for ii in range(self.count):
@@ -60,6 +67,9 @@ class Monitor:
         self.fit_mode = fit_mode
         self.source = source
         self.canvas_rect = ()
+        self.canvas_id = 0
+
+        self._canvas_im = None
 
     def __lt__(self, other):  # First top to bottom, then left to right
         if self.y1 == other.y1:
@@ -97,8 +107,8 @@ def set_wallpaper(image):
     image.save(f, format="PNG")
     windll.user32.SystemParametersInfoW(20, 0, f.name, 0)
     f.close()
-    # Delete the temporary file after 5 seconds to give time for wallpaper change
-    Timer(5, lambda: os.remove(f.name)).run()
+    # Delete the temporary file after a few seconds to give time for wallpaper change
+    Timer(5, lambda: os.remove(f.name)).start()
 
 
 def get_num_monitors():
@@ -125,7 +135,6 @@ def get_monitors():
 
 def main():
     monitors = get_monitors()
-    # path = "C:\\Users\\Maciek\\Desktop\\wallpaper.png"
 
     if len(monitors) != len(argv) - 1:
         print("You supplied %d arguments and you have %d monitors" % (len(argv) - 1, len(monitors)))

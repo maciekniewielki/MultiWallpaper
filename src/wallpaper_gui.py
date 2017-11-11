@@ -11,61 +11,74 @@ class WallGui(tk.Tk):
         self.title("WallPy")
         self.geometry("1600x900")
 
-        size = (1280, 720)
-        width = 4
+        canv_size = (1280, 720)
+        spacing = 4
 
-        self.monitors = get_monitors()
-        self.desktop = Desktop(self.monitors)
-        # for x in [0, 2]:
-        #     for y in [0, 2]:
-        #         self.monitors.append(Monitor(1920*x, y*1080, 1920*(x+1), (y+1)*1080))
-
-        # self.monitors.append(Monitor(1920 +300, 1080, 1920 * 2-200, 2 * 1080+500))
-
-        # self.monitors.append(Monitor(1920 + 300, -1500, 1920 * 2 - 200,  -500))
-        self.rect_images = [0] * len(self.monitors)
-        bounds = get_bounds(self.monitors)
-        scale = size[0]/(bounds[2] - bounds[0]), size[1]/(bounds[3] - bounds[1])
-        scale = [min(scale)]*2
-
-        self.canv = tk.Canvas(self, width=size[0], height=size[1])
+        self.canv = tk.Canvas(self, width=canv_size[0], height=canv_size[1])
         self.confirm_button = tk.Button(self, text="Confirm", command=self.apply_wallpaper)
+        self.create_gui()
 
+        monitors = get_monitors()
+        self.desktop = Desktop(monitors)
+
+        bounds = self.desktop.get_bounds()
+        height = get_size(bounds)
+        scale = canv_size[0] / height[0], canv_size[1] / height[1]
+        scale = [min(scale)] * 2
+
+        self.init_canvas(scale, spacing)
+
+    def init_canvas(self, scale, spacing):
+        for ii in range(self.desktop.count):
+            monitor = self.desktop.monitors[ii]
+            rect = monitor.get_rect()
+            # print("Rect: %s" % str(rect))
+            canv_rect = self.monitor_to_canvas(self.desktop.get_bounds(), rect, scale, spacing)
+            # print("Canv rect: %s" % str(canv_rect))
+            rectangle = self.canv.create_rectangle(*canv_rect, width=spacing, tags=ii)
+            monitor.canvas_id = rectangle
+            monitor.canvas_rect = canv_rect
+        self.canv.bind('<ButtonPress-1>', self.on_canvas_click)
+
+    def monitor_to_canvas(self, bounds, rect, scale, spacing):
+        canv_rect = (rect[0] - bounds[0]) * scale[0] + spacing, (rect[1] - bounds[1]) * scale[1] + spacing, \
+                    (rect[2] - bounds[0]) * scale[0] - spacing, (rect[3] - bounds[1]) * scale[1] - spacing
+        return canv_rect
+
+    def create_gui(self):
         # canv.pack(fill="both", expand=True, anchor=tk.CENTER)
         self.canv.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.confirm_button.pack()
-        self.monitors_id = []
-        self.rects = []
-        for index, monitor in enumerate(self.monitors):
-            rect = monitor.get_rect()
-            print("Rect: %s" % str(rect))
-            canv_rect = (rect[0]-bounds[0])*scale[0]+width, (rect[1]-bounds[1])*scale[1]+width, \
-                        (rect[2]-bounds[0])*scale[0]-width, (rect[3]-bounds[1])*scale[1]-width
-            print("Canv rect: %s" % str(canv_rect))
-            rectangle = self.canv.create_rectangle(*canv_rect, width=4, tags=index)
-            self.monitors_id.append(rectangle)
-            self.rects.append(canv_rect)
 
-        def on_canvas_click(event):
-            print('Got object click', event.x, event.y)
-            item = self.canv.find_closest(event.x, event.y)[0]
-            which = filedialog.askopenfilename()
-            index = int(self.canv.gettags(item)[0])
-            im = Image.open(which, "r")
-            self.monitors[index].set_image(im.copy())
-            im = im.resize((int(self.rects[index][2]-self.rects[index][0]), int(self.rects[index][3]-self.rects[index][1])),
-                      Image.ANTIALIAS)
-            self.rect_images[index] = ImageTk.PhotoImage(im)
-            self.canv.create_image((self.rects[index][0], self.rects[index][1]), image=self.rect_images[index], tags=index, anchor=tk.NW)
-            print("Image rect: %s" % str(self.rects[index]))
-            self.canv.tag_raise(self.monitors_id[index])
-            print("Number %d bind to wallpaper %s" % (index, which))
+    def on_canvas_click(self, event):
+        # print("Got object click at", event.x, event.y)
+        item = self.canv.find_closest(event.x, event.y)[0]
+        index = int(self.canv.gettags(item)[0])
+        monitor = self.desktop.monitors[index]
 
-        self.canv.bind('<ButtonPress-1>', on_canvas_click)
+        # Return if event is not inside the canvas rectangle
+        if not ((monitor.canvas_rect[0] < event.x < monitor.canvas_rect[2]) and
+                    (monitor.canvas_rect[1] < event.y < monitor.canvas_rect[3])):
+            return
+
+        which = filedialog.askopenfilename()
+
+        # Return if no path is given
+        if not which:
+            return
+
+        im = Image.open(which, "r")
+        monitor.set_image(im.copy())
+        width, height = [int(x) for x in get_size(monitor.canvas_rect)]
+        im = monitor.generate_fit_image().resize((width, height))
+
+        monitor._canvas_im = ImageTk.PhotoImage(im)
+        self.canv.create_image(monitor.canvas_rect[:2], image=monitor._canvas_im, tags=index, anchor=tk.NW)
+        self.canv.tag_raise(monitor.canvas_id)
+        print("Wallpaper %s bind to rect %s" % (which, monitor.get_rect()))
 
     def apply_wallpaper(self):
-        desktop = Desktop(self.monitors)
-        wallpaper = desktop.get_wallpaper()
+        wallpaper = self.desktop.get_wallpaper()
         set_wallpaper(wallpaper)
 
 
