@@ -68,6 +68,7 @@ class Monitor:
         self.source = source
         self.canvas_rect = ()
         self.canvas_id = 0
+        self.path = None
 
         self._canvas_im = None
 
@@ -96,16 +97,20 @@ class Monitor:
 
     def generate_fit_image(self):
         """Returns an Image with applied fit mode."""
+        if not self.im:
+            return Image.new("RGB", (self.width, self.height))
+
         if self.fit_mode == "stretch":
             return self.im.resize((self.width, self.height))
         else:
-            raise NotImplementedError("%s: This fit mode doesn't exist" % self.fit_mode)
+            message = "%s: This fit mode doesn't exist" % self.fit_mode
+            raise NotImplementedError(message)
 
 
 def set_wallpaper(image):
     f = NamedTemporaryFile(delete=False)
     image.save(f, format="PNG")
-    windll.user32.SystemParametersInfoW(20, 0, f.name, 0)
+    windll.user32.SystemParametersInfoW(20, 0, f.name, 1)
     f.close()
     # Delete the temporary file after a few seconds to give time for wallpaper change
     Timer(5, lambda: os.remove(f.name)).start()
