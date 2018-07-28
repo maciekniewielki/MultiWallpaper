@@ -4,7 +4,8 @@ from construct_wall import *
 from PIL import Image, ImageTk
 
 
-FIT_MODES = "center fit fill stretch tile cut".split()
+FIT_MODES = "stretch cut".split()
+PLANNED_FIT_MODES = "center fit fill stretch tile cut".split()
 
 
 class WallGui(tk.Tk):
@@ -14,9 +15,12 @@ class WallGui(tk.Tk):
         self.state("zoomed")
         self.title("WallPy")
         self.geometry("1600x900")
+        self.configure(bg="white")
 
         canv_size = (1280, 720)
         spacing = 4
+
+        # TODO add a button to change wallpaper fit_mode to span
 
         self.canv = tk.Canvas(self, width=canv_size[0], height=canv_size[1])
         self.confirm_button = tk.Button(self, text="Confirm", command=self.apply_wallpaper)
@@ -61,9 +65,9 @@ class WallGui(tk.Tk):
 
     def create_gui(self):
         # canv.pack(fill="both", expand=True, anchor=tk.CENTER)
-        self.canv.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.canv.place(relx=0.5, rely=0.45, anchor=tk.CENTER)
         self.confirm_button.pack()
-        self.info_frame.pack(side="bottom", pady=100)
+        self.info_frame.pack(side="bottom", pady=10)
 
     def event_inside_monitor(self, monitor, event):
         return ((monitor.canvas_rect[0] < event.x < monitor.canvas_rect[2]) and
@@ -117,6 +121,7 @@ class WallGui(tk.Tk):
         monitor._canvas_im = ImageTk.PhotoImage(im)
         image = self.canv.create_image(monitor.canvas_rect[:2], image=monitor._canvas_im, anchor=tk.NW)
         self.canv.tag_lower(image)  # Lowers the image under the rectangle
+        self.info_frame.update_selected()
         print("Wallpaper %s bind to rect %s" % (which, monitor.get_rect()))
 
     def deselect_active_monitor(self):
@@ -125,11 +130,15 @@ class WallGui(tk.Tk):
             self._selected_monitor = None
 
     def apply_wallpaper(self):
+        # TODO add a file dialog to save the wallpaper. Better don't use tempfile
         wallpaper = self.desktop.get_wallpaper()
         set_wallpaper(wallpaper)
 
     def set_fit_mode(self, mode):
+        if not self._selected_monitor:
+            return
         self._selected_monitor.fit_mode = mode
+        # TODO update the image in the canvas to reflect fit_mode change
         self.info_frame.update_selected()
 
 
@@ -151,13 +160,13 @@ class InfoFrame(tk.Frame):
         # font = tkFont.Font(font="TkDefaultFont").configure(size=40)
         font = (None, 20)
 
-        self.hide_frame = tk.Frame(self)
+        self.hide_frame = tk.Frame(self, bg="white")
         self.hide_frame.pack()
-        tk.Label(self, text="Path:", font=font).grid(in_=self.hide_frame, row=0, column=0, sticky="w")
-        tk.Label(self, text="Fit mode:", font=font).grid(in_=self.hide_frame, row=1, column=0)
-        self.path_label = tk.Label(self, text="None", font=("Courier", 20))
-        self.path_browse = tk.Button(self, text="Browse", command=browse_callback, font=font)
-        self.fit_mode_label = tk.Label(self, text="stretch", font=("Courier", 20))
+        tk.Label(self, text="Path:", font=font, bg="white").grid(in_=self.hide_frame, row=0, column=0, sticky="w")
+        tk.Label(self, text="Fit mode:", font=font, bg="white").grid(in_=self.hide_frame, row=1, column=0)
+        self.path_label = tk.Label(self, text="None", font=("Courier", 20), bg="white")
+        self.path_browse = tk.Button(self, text="Browse", command=browse_callback, font=font, bg="white")
+        self.fit_mode_label = tk.Label(self, text="stretch", font=("Courier", 20), bg="white")
         self.path_label.grid(in_=self.hide_frame, row=0, column=1, padx=20)
         self.path_browse.grid(in_=self.hide_frame, row=0, column=2)
         self.fit_mode_label.grid(in_=self.hide_frame, row=1, column=1)
